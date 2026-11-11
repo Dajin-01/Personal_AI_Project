@@ -1,0 +1,78 @@
+services:
+  worker:
+    build: ./backend
+    image: knowledge-api:dev
+    user: "nobody:nogroup"
+    env_file:
+      - ./backend/.env
+    environment: 
+      DATABASE_URL: "postgresql+psycopg://app:local_dev_password@db:5432/knowledge"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    command: ["/app/.venv/bin/celery", "-A", "tasks:celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  redis: 
+    image: redis:7.4.12-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: knowledge
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: local_dev_password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app", "-d", "knowledge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  api: 
+    build:  ./backend
+    image: knowledge-api:dev
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: "postgresql+psycopg://app:local_dev_password@db:5432/knowledge"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  
+
+  nginx:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  postgres_data:
+  redis_data:
+
+
