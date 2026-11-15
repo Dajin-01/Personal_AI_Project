@@ -12,7 +12,7 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: knowledge
+          POSTGRES_DB: knowledge_test
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci_test_only
         ports:
