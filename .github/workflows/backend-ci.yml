@@ -17,3 +17,15 @@ jobs:
       - name: Check backend files
         working-directory: backend
         run: ls -l pyproject.toml uv.lock
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: '0.13.5'
+          python-version: '3.14'
+        
+      - name: Install dependencies
+        working-directory: backend
+        run: | 
+          uv sync --locked
+          uv run --no-sync python --version
